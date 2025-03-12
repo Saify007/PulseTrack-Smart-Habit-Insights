@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Habit Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+
+        @import url('https://fonts.googleapis.com/css2?family=Merriweather+Sans:ital,wght@0,300..800;1,300..800&display=swap');
+
+        body {
+            font-family: "Merriweather Sans", sans-serif;
+            margin: 20px;
+            transition: background-color 0.3s, color 0.3s;
+            box-shadow: rgba(50, 50, 93, 0.25) 0px 50px 100px -20px, rgba(0, 0, 0, 0.3) 0px 30px 60px -30px;
+        }
+        
+        body.dark-mode {
+            background-color: #333;
+            color: #eee;
+        }
+        #habit-form {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        #habit-list {
+            margin-bottom: 20px;
+            align-content: center;
+        }
+        .habit-item {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .habit-item.dark-mode {
+            border-color: #555;
+        }
+        #chart-container {
+          width: 600px;
+          height: 300px;
+          margin: 20px auto;
+         
+        }
+        #mode-toggle{
+            position: absolute;
+            top: 5px;
+            right: 10px;     
+        }
+        h1 {
+  text-align: center;
+}
+    </style>
+</head>
+<body>
+
+    <h1>PulseTrack: Smart Habit Insights</h1>
+
+    <button id="mode-toggle">Dark Mode</button>
+
+    <form id="habit-form">
+        <input type="text" id="habit-name" placeholder="Habit Name" required>
+        <input type="number" id="habit-hours" placeholder="Hours per day" required>
+        <button type="submit">Add Habit</button>
+    </form>
+
+    <div id="habit-list"></div>
+
+    <div id="chart-container">
+        <canvas id="habit-chart"></canvas>
+    </div>
+
+    <script>
+        const habitForm = document.getElementById('habit-form');
+        const habitList = document.getElementById('habit-list');
+        const habitNameInput = document.getElementById('habit-name');
+        const habitHoursInput = document.getElementById('habit-hours');
+        const habitChartCanvas = document.getElementById('habit-chart').getContext('2d');
+        const modeToggle = document.getElementById('mode-toggle');
+        const body = document.body;
+
+        let habits = JSON.parse(localStorage.getItem('habits')) || [];
+        let habitChart;
+        let darkMode = localStorage.getItem('darkMode') === 'enabled';
+
+        if (darkMode) {
+            body.classList.add('dark-mode');
+        }
+
+        modeToggle.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            darkMode = !darkMode;
+            localStorage.setItem('darkMode', darkMode ? 'enabled' : 'disabled');
+            renderHabits();
+        });
+
+        function renderHabits() {
+            habitList.innerHTML = '';
+            habits.forEach((habit, index) => {
+                const habitItem = document.createElement('div');
+                habitItem.classList.add('habit-item');
+                if (darkMode){
+                    habitItem.classList.add('dark-mode');
+                }
+                habitItem.innerHTML = `
+                    <span>${habit.name} (${habit.hours} hours)</span>
+                    <div>
+                        <button onclick="toggleHabitCompletion(${index})">${habit.completed ? 'Undo' : 'Done'}</button>
+                        <button onclick="deleteHabit(${index})">Delete</button>
+                    </div>
+                `;
+                habitList.appendChild(habitItem);
+            });
+            renderChart();
+        }
+
+        function toggleHabitCompletion(index) {
+            habits[index].completed = !habits[index].completed;
+            localStorage.setItem('habits', JSON.stringify(habits));
+            renderHabits();
+        }
+
+        function deleteHabit(index) {
+            habits.splice(index, 1);
+            localStorage.setItem('habits', JSON.stringify(habits));
+            renderHabits();
+        }
+
+        function renderChart() {
+            const completedHabits = habits.filter(habit => habit.completed);
+            const labels = completedHabits.map(habit => habit.name);
+            const data = completedHabits.map(habit => habit.hours);
+
+            const totalHours = data.reduce((acc, hours) => acc + hours, 0);
+            const percentageData = data.map(hours => ((hours / totalHours) * 100).toFixed(1));
+
+            if (habitChart) {
+                habitChart.destroy();
+            }
+
+            habitChart = new Chart(habitChartCanvas, {
+                type: 'pie',
+                data: {
+                    labels: labels.map((label, index) => `${label} (${percentageData[index]}%)`),
+                    datasets: [{
+                        data: data,
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 206, 86, 0.7)',
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(153, 102, 255, 0.7)',
+                            'rgba(255, 159, 64, 0.7)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        }
+                    }
+                }
+            });
+        }
+
+        habitForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const habitName = habitNameInput.value.trim();
+            const habitHours = parseInt(habitHoursInput.value.trim());
+            if (habitName && !isNaN(habitHours) && habitHours > 0) {
+                habits.push({ name: habitName, hours: habitHours, completed: false });
+                localStorage.setItem('habits', JSON.stringify(habits));
+                habitNameInput.value = '';
+                habitHoursInput.value = '';
+                renderHabits();
+            }
+        });
+
+        renderHabits();
+    </script>
+</body>
+</html>
